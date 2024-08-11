@@ -20,8 +20,9 @@ const int KILL_SWITCH = 14;         // GPIO pin for Kill (D5)
 const int SIREN_SWITCH = 12;        // GPIO pin for Siren (D6)
 const int ALARM = 13;               // GPIO pin for the Alarm (D7)
 const int SYSTEM_INDICATOR = 15;    // GPIO pin for the System Indicator (D8)
+const int SELF_SWITCH = 10;         // GPIO pin for Self Start (SD3)
 
-int16_t AcX, AcY, AcZ;              // Variables to store sensor data
+int16_t AcX, AcY, AcZ, TemP;              // Variables to store sensor data
 
 float baselineX = 0, baselineY = 0, baselineZ = 0;  // Baseline values for accelerometer data
 
@@ -53,12 +54,13 @@ void setup() {
   Wire.endTransmission(true);
 
   // Pin setup
-  pinMode(SYSTEM_SWITCH, OUTPUT);  // D0 System Switch
-  pinMode(KILL_SWITCH, OUTPUT);    // D5 Kill Switch
-  pinMode(SIREN_SWITCH, OUTPUT);   // D6 Siren Switch
+  pinMode(SYSTEM_SWITCH, OUTPUT);     // D0 System Switch
+  pinMode(KILL_SWITCH, OUTPUT);       // D5 Kill Switch
+  pinMode(SIREN_SWITCH, OUTPUT);      // D6 Siren Switch
   pinMode(SYSTEM_INDICATOR, OUTPUT);  // D8 System Indicator
-  pinMode(LED_BUILTIN, OUTPUT);    // Built-in LED
-  pinMode(ALARM, OUTPUT);          // Alarm LED
+  pinMode(LED_BUILTIN, OUTPUT);       // Built-in LED
+  pinMode(SELF_SWITCH, OUTPUT);       // SELF Switch
+  pinMode(ALARM, OUTPUT);             // Alarm Switch
 
   // Start Blynk
   Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
@@ -99,14 +101,19 @@ BLYNK_WRITE(V1) {
 
 BLYNK_WRITE(V2) {
   int value = param.asInt();
-  digitalWrite(SIREN_SWITCH, value ? HIGH : LOW);  // Control D6 Siren Switch
+  digitalWrite(ALARM, value ? HIGH : LOW);  // Control D6 Siren Switch
   sirenIsOn = value ? true : false;                // Update Kill flag
 
 }
 
 BLYNK_WRITE(V3) {
   int value = param.asInt();
-  digitalWrite(SYSTEM_INDICATOR, value ? HIGH : LOW);  // Control D8 System Indicator
+  if (!killIsOn){
+  digitalWrite(SELF_SWITCH, value ? HIGH : LOW);  // Control D8 Self Switch
+  }
+  else{
+   digitalWrite(ALARM, value ? HIGH : LOW);  // Control D6 Siren Switch
+  }
 }
 
 void loop() {
@@ -123,6 +130,7 @@ void loop() {
   AcX = Wire.read() << 8 | Wire.read();  // Accelerometer X
   AcY = Wire.read() << 8 | Wire.read();  // Accelerometer Y
   AcZ = Wire.read() << 8 | Wire.read();  // Accelerometer Z
+  TemP= Wire.read() << 8 | Wire.read();
 
   if (systemIsOn) {
     // If baseline is not yet collected
@@ -194,11 +202,14 @@ void loop() {
       }
     }
   }
+  
 
   Serial.print("systemIsOn: "); Serial.print(systemIsOn);
   Serial.print("|| killIsOn: "); Serial.print(killIsOn);
   Serial.print("|| sirenIsOn: "); Serial.print(sirenIsOn);
-  Serial.print("|| baselineCollected: "); Serial.println(baselineCollected);
+  Serial.print("|| baselineCollected: "); Serial.print(baselineCollected);
+  Serial.print("|| SELF_SWITCH: "); Serial.print(SELF_SWITCH);
+  Serial.print("|| Temperature: "); Serial.println(TemP);
 
 
   delay(500);  // Adjust delay as needed for responsiveness
